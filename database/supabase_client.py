@@ -1,11 +1,9 @@
-import os
 from supabase import create_client, Client
 import logging
 
-# Get credentials from environment variables
-SUPABASE_URL = os.environ.get('SUPABASE_URL', '')
-SUPABASE_KEY = os.environ.get('SUPABASE_KEY', '')
-
+# Supabase credentials - Replace with your actual values
+SUPABASE_URL = 'https://vvkvowtrzmekbdresegf.supabase.co'
+SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2a3Zvd3Ryem1la2JkcmVzZWdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MDQyMzIsImV4cCI6MjA4MjI4MDIzMn0.ge6YMn01wM_oEm1wT4tx1mUBxwXqUHiKZIQdCIC1-OM'
 # Initialize Supabase client
 supabase: Client = None
 
