@@ -13,15 +13,17 @@ darino_bp = Blueprint('darino', __name__)
 BASE_URL = "https://api.darino.vip"
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0",
+    "User-Agent": "Mozilla/5.0 (Linux; Android 10)",
     "Content-Type": "application/json",
-    "origin": "https://darino.vip"
+    "origin": "https://darino.vip",
+    "referer": "https://darino.vip/",
+    "h5-platform": "darino.vip"
 }
 
 # ============= UTILITY FUNCTIONS =============
 
 def generate_email():
-    names = ["darino", "crypto", "trader", "invest", "digital"]
+    names = ["qidazz", "Favour", "light", "daniel", "malik"]
     name = random.choice(names)
     digits = ''.join(random.choices(string.digits, k=6))
     return f"{name}{digits}@gmail.com"
