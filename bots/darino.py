@@ -36,8 +36,8 @@ def register_darino_account(email, password, promo_code):
         "email": email,
         "password": password,
         "confirmPassword": password,
-        "promo_code": promo_code or ""
-        "source": None
+        "promo_code": promo_code or "",
+        "source": None  # Add this field
     }
     
     try:
@@ -63,31 +63,6 @@ def register_darino_account(email, password, promo_code):
     except Exception as e:
         logging.error(f"Darino registration error: {e}")
         return False, {"error": str(e)}
-
-def darino_login(email, password):
-    """Login to Darino account"""
-    payload = {"email": email, "password": password}
-    
-    try:
-        response = requests.post(
-            f"{BASE_URL}/h5/taskBase/login",
-            headers=HEADERS,
-            data=json.dumps(payload),
-            timeout=15
-        )
-        
-        # Clean JSON
-        text = response.text
-        if "{" in text:
-            text = text[text.find("{"):]
-        if "}" in text:
-            text = text[:text.rfind("}")+1]
-        
-        return json.loads(text)
-        
-    except Exception as e:
-        logging.error(f"Darino login error: {e}")
-        return {"error": str(e)}
 
 # ============= ROUTES =============
 
