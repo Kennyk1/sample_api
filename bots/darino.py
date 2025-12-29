@@ -37,6 +37,7 @@ def register_darino_account(email, password, promo_code):
         "password": password,
         "confirmPassword": password,
         "promo_code": promo_code or ""
+        "source": None
     }
     
     try:
