@@ -12,7 +12,7 @@ auth_bp = Blueprint('auth', __name__)
 # TODO: Replace with actual Supabase connection
 # from database.supabase_client import supabase
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'e9b1c2d3f4a56789b0cdef1234567890abcdef1234567890abcdef1234567890')
 
 # ============= UTILITY FUNCTIONS =============
 
