@@ -7,6 +7,9 @@ import random
 import string
 import time
 
+# Import Supabase functions
+from database.supabase_client import save_bot_accounts, get_user_accounts
+
 darino_bp = Blueprint('darino', __name__)
 
 # ============= CONFIGURATION =============
@@ -112,7 +115,9 @@ def create_accounts():
         data = request.json
         promo_code = data.get("promo_code", "")
         count = data.get("count", 1)
-        user_id = data.get("user_id")  # From auth token
+        
+        # TODO: Get user_id from JWT token
+        user_id = "mock-user-id"  # REPLACE THIS with actual user_id from JWT token
         
         # Validate count
         if not isinstance(count, int) or count < 1 or count > 50:
@@ -158,8 +163,14 @@ def create_accounts():
             if i < count - 1:
                 time.sleep(1.5)
         
-        # TODO: Save to Supabase database
-        # save_accounts_to_db(user_id, created_accounts)
+        # ✅ SAVE TO SUPABASE DATABASE
+        if created_accounts:
+            try:
+                saved_count = save_bot_accounts(user_id, created_accounts)
+                logging.info(f"Saved {saved_count} accounts to database")
+            except Exception as e:
+                logging.error(f"Failed to save accounts to database: {e}")
+                # Continue anyway, accounts were created successfully
         
         return jsonify({
             "success": True,
@@ -182,16 +193,16 @@ def create_accounts():
 def get_accounts():
     """Get user's Darino accounts - requires authentication"""
     try:
-        # TODO: Get user_id from auth token
-        # user_id = get_user_from_token(request.headers.get('Authorization'))
+        # TODO: Get user_id from JWT token
+        user_id = "mock-user-id"  # REPLACE THIS with actual user_id from JWT token
         
-        # TODO: Fetch from Supabase
-        # accounts = fetch_user_accounts_from_db(user_id, bot_type='darino')
+        # ✅ FETCH FROM SUPABASE
+        accounts = get_user_accounts(user_id, bot_type='darino')
         
         return jsonify({
             "success": True,
             "bot_type": "darino",
-            "accounts": []  # Will be populated from database
+            "accounts": accounts
         })
         
     except Exception as e:
