@@ -13,7 +13,7 @@ darino_bp = Blueprint('darino', __name__)
 BASE_URL = "https://api.darino.vip"
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Linux; Android 10)",
+    "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36",
     "Content-Type": "application/json",
     "origin": "https://darino.vip",
     "referer": "https://darino.vip/",
@@ -23,7 +23,7 @@ HEADERS = {
 # ============= UTILITY FUNCTIONS =============
 
 def generate_email():
-    names = ["qidazz", "Favour", "light", "daniel", "malik"]
+    names = ["darino", "crypto", "trader", "invest", "digital"]
     name = random.choice(names)
     digits = ''.join(random.choices(string.digits, k=6))
     return f"{name}{digits}@gmail.com"
@@ -32,14 +32,25 @@ def generate_password():
     chars = string.ascii_letters + string.digits
     return ''.join(random.choices(chars, k=10))
 
+def clean_json_response(text):
+    """Clean and parse JSON response"""
+    try:
+        if "{" in text:
+            text = text[text.find("{"):]
+        if "}" in text:
+            text = text[:text.rfind("}")+1]
+        return json.loads(text)
+    except Exception as e:
+        logging.error(f"JSON parse error: {e}")
+        return {"error": "Invalid JSON response"}
+
 def register_darino_account(email, password, promo_code):
     """Register account on Darino platform"""
     payload = {
         "email": email,
         "password": password,
         "confirmPassword": password,
-        "promo_code": promo_code or "",
-        "source": None  # Add this field
+        "promo_code": promo_code or ""
     }
     
     try:
@@ -50,14 +61,7 @@ def register_darino_account(email, password, promo_code):
             timeout=15
         )
         
-        # Clean JSON response
-        text = response.text
-        if "{" in text:
-            text = text[text.find("{"):]
-        if "}" in text:
-            text = text[:text.rfind("}")+1]
-        
-        result = json.loads(text)
+        result = clean_json_response(response.text)
         success = result.get("code") == 0
         
         return success, result
@@ -65,6 +69,28 @@ def register_darino_account(email, password, promo_code):
     except Exception as e:
         logging.error(f"Darino registration error: {e}")
         return False, {"error": str(e)}
+
+def darino_login(email, password):
+    """Login to Darino account"""
+    payload = {
+        "email": email,
+        "password": password
+    }
+    
+    try:
+        response = requests.post(
+            f"{BASE_URL}/h5/taskBase/login",
+            headers=HEADERS,
+            data=json.dumps(payload),
+            timeout=15
+        )
+        
+        result = clean_json_response(response.text)
+        return result
+        
+    except Exception as e:
+        logging.error(f"Darino login error: {e}")
+        return {"error": str(e)}
 
 # ============= ROUTES =============
 
@@ -116,8 +142,13 @@ def create_accounts():
             
             if success:
                 # Try to login to get token
-                login_result = darino_login(email, password)
-                account_data["token"] = login_result.get('data', {}).get('token', 'N/A')
+                try:
+                    login_result = darino_login(email, password)
+                    account_data["token"] = login_result.get('data', {}).get('token', 'N/A')
+                except Exception as e:
+                    logging.warning(f"Login failed for {email}: {e}")
+                    account_data["token"] = 'N/A'
+                
                 created_accounts.append(account_data)
             else:
                 account_data["error"] = response.get('msg', response.get('error', 'Unknown error'))
