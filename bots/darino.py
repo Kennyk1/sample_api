@@ -173,19 +173,31 @@ def bind_request_code():
     if not account:
         return jsonify({"success": False, "error": "Account not found"}), 404
 
-    login_res = darino_login(account["email"], account["password"])
-    token = login_res.get("data", {}).get("token")
+    # Ensure token exists
+    token = account.get("token")
     if not token:
-        return jsonify({"success": False, "error": "Login failed"}), 500
+        login_res = darino_login(account["email"], account["password"])
+        token = login_res.get("data", {}).get("token")
+        if not token:
+            return jsonify({"success": False, "error": "Login failed"}), 500
 
+    # Generate UUID and request code
     uuid_val = generate_uuid()
     phone_res = request_phone_code(uuid_val, phone, token)
+    
     if phone_res.get("code") != 0:
-        return jsonify({"success": False, "error": phone_res}), 500
+        return jsonify({"success": False, "error": phone_res.get("msg", "Unknown error")}), 500
 
-    # Save UUID to account so frontend can use it later
+    # Save UUID to account without replacing other fields
     save_bot_accounts(user_id, [{"id": account_id, "uuid": uuid_val}], update=True)
-    return jsonify({"success": True, "message": "Code requested. Enter it in WhatsApp", "uuid": uuid_val})
+
+    # Return UUID and phone_code for frontend
+    return jsonify({
+        "success": True,
+        "message": "Code requested. Enter it in WhatsApp",
+        "uuid": uuid_val,
+        "phone_code": phone_res.get("data", {}).get("phone_code")
+    })
 
 # -------- CHECK BIND STATUS --------
 @darino_bp.route("/bind/status", methods=["POST"])
@@ -210,8 +222,10 @@ def bind_check_status():
         return jsonify({"success": False, "error": "Binding not started"}), 400
 
     scan_res = scan_result(uuid_val, token)
-    if scan_res.get("code") == 0:
-        save_bot_accounts(user_id, [{"id": account_id, "status": "bound", "metadata": scan_res}], update=True)
-        return jsonify({"success": True, "message": "Account bound successfully"})
 
-    return jsonify({"success": False, "message": "Scan not completed yet"})
+    if scan_res.get("code") == 0:
+        # Update account as bound
+        save_bot_accounts(user_id, [{"id": account_id, "status": "bound", "metadata": scan_res}], update=True)
+        return jsonify({"success": True, "message": "Account bound successfully", "data": scan_res.get("data")})
+
+    return jsonify({"success": False, "message": scan_res.get("msg", "Scan not completed yet")})
