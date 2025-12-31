@@ -269,6 +269,3 @@ def bind_check_status():
     except Exception as e:
         logging.exception("Bind check failed")
         return jsonify({"success": False, "error": "Internal server error"}), 500
-        @darino_bp.route("/test_update")
-def test_update():
-    return jsonify({"success": True, "message": "Updated code is running!"})
