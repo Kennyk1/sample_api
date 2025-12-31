@@ -214,3 +214,4 @@ def bind_account():
         return jsonify({"success": True, "message": "Account bound successfully"})
 
     return jsonify({"success": False, "error": "Scan not completed"}), 500
+    print("Login response text:", response.text)
