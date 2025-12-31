@@ -86,7 +86,7 @@ def darino_login(email, password):
 
 def request_phone_code(uuid_val, phone, token):
     r = requests.post(
-        f"{BASE_URL}/h5/taskBase/bindPhone",
+        f"{BASE_URL}/h5/taskUser/phoneCode",
         headers={**HEADERS, "Authorization": token},
         json={"uuid": uuid_val, "phone": phone},
         timeout=15
@@ -95,7 +95,7 @@ def request_phone_code(uuid_val, phone, token):
 
 def scan_result(uuid_val, token):
     r = requests.get(
-        f"{BASE_URL}/h5/taskBase/scanResult?uuid={uuid_val}",
+        f"{BASE_URL}/h5/taskUser/scanCodeResult?uuid={uuid_val}",
         headers={**HEADERS, "Authorization": token},
         timeout=15
     )
