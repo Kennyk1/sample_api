@@ -179,59 +179,77 @@ def get_accounts():
         logging.exception("Get accounts failed")
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
-# -------- REQUEST BIND CODE --------
+# -------- REQUEST BIND CODE (DEBUG VERSION) --------
 @darino_bp.route("/bind", methods=["POST"])
 def bind_request_code():
     try:
+        logging.info("--- BIND REQUEST START ---")
         user_id = get_user_id_from_token(request)
         if not user_id:
+            logging.warning("Unauthorized access attempt")
             return jsonify({"success": False, "error": "Unauthorized"}), 401
 
         data = request.json or {}
         account_id = data.get("account_id")
         phone = data.get("phone")
+        
+        logging.info(f"User: {user_id} | AccountID: {account_id} | Phone: {phone}")
+
         if not account_id or not phone:
             return jsonify({"success": False, "error": "Missing account_id or phone"}), 400
 
+        # Fetch accounts to find the specific one
         accounts = get_user_accounts(user_id, bot_type="darino") or []
         account = next((a for a in accounts if a.get("id") == account_id), None)
+        
         if not account:
+            logging.error(f"Account {account_id} not found in DB")
             return jsonify({"success": False, "error": "Account not found"}), 404
 
-        # Ensure email/password exist
-        if not account.get("email") or not account.get("password"):
-            return jsonify({"success": False, "error": "Account missing email or password"}), 400
-
-        # Ensure token exists
+        # Use existing token or login if missing
         token = account.get("token")
         if not token:
+            logging.info("Token missing, attempting re-login...")
             login_res = darino_login(account["email"], account["password"])
-            token = login_res.get("data", {}).get("token")
+            token = login_res.get("data", {}).get("token") if login_res.get("data") else None
+            
             if not token:
+                logging.error(f"Login failed for {account['email']}: {login_res}")
                 return jsonify({"success": False, "error": "Login failed"}), 500
 
-        # Generate UUID and request phone code
+        # Generate UUID for this session
         uuid_val = generate_uuid()
+        logging.info(f"Generated UUID: {uuid_val}")
+
+        # Call Darino API
         phone_res = request_phone_code(uuid_val, phone, token)
+        logging.info(f"Darino API Response: {phone_res}")
+
         if phone_res.get("code") != 0:
+            logging.error(f"Darino rejected code request: {phone_res.get('msg')}")
             return jsonify({"success": False, "error": phone_res.get("msg", "Unknown error")}), 400
 
-        # Save UUID without overwriting other fields
-        update_data = account.copy()
-        update_data["uuid"] = uuid_val
-        save_bot_accounts(user_id, [update_data], update=True)
+        # --- DB UPDATE BYPASSED FOR DEBUGGING ---
+        # We are NOT calling save_bot_accounts here.
+        # We will pass the UUID back to the frontend so it can use it for status checks.
+        logging.info("Bypassing Database Update for debugging...")
 
         return jsonify({
             "success": True,
-            "message": "Code requested. Enter it in WhatsApp",
+            "message": "DEBUG MODE: Code requested. Check WhatsApp.",
             "uuid": uuid_val,
-            "phone_code": phone_res.get("data", {}).get("phone_code")
+            "phone_code": phone_res.get("data", {}).get("phone_code"),
+            "full_debug_response": phone_res # Returning everything to see structure
         })
 
     except Exception as e:
-        logging.exception("Bind request failed")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
-
+        logging.exception("CRITICAL ERROR in /bind route")
+        return jsonify({
+            "success": False, 
+            "error": "Internal server error", 
+            "debug_msg": str(e)
+        }), 500
+        
 # -------- CHECK BIND STATUS --------
 @darino_bp.route("/bind/status", methods=["POST"])
 def bind_check_status():
