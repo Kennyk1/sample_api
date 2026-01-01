@@ -178,7 +178,7 @@ def get_accounts():
         logging.exception("Get accounts failed")
         return jsonify({"success": False, "error": "Internal server error"}), 500
 
-# -------- REQUEST BIND CODE --------
+# -------- REQUEST BIND CODE (Database-Free Version) --------
 @darino_bp.route("/bind", methods=["POST"])
 def bind_request_code():
     try:
@@ -189,10 +189,11 @@ def bind_request_code():
         data = request.json or {}
         account_id = data.get("account_id")
         phone = data.get("phone")
-        
+
         if not account_id or not phone:
             return jsonify({"success": False, "error": "Missing account_id or phone"}), 400
 
+        # Get accounts to find the credentials
         accounts = get_user_accounts(user_id, bot_type="darino") or []
         account = next((a for a in accounts if a.get("id") == account_id), None)
         
@@ -203,30 +204,68 @@ def bind_request_code():
         if not token:
             login_res = darino_login(account["email"], account["password"])
             token = login_res.get("data", {}).get("token") if login_res.get("data") else None
-            if not token:
-                return jsonify({"success": False, "error": "Login failed"}), 500
 
+        # Generate the session UUID
         uuid_val = generate_uuid()
+        
+        # Call Darino API
         phone_res = request_phone_code(uuid_val, phone, token)
 
         if phone_res.get("code") == 0:
-            # SAFE UPDATE: Only send ID and UUID to avoid DB crashes
-            try:
-                save_bot_accounts(user_id, [{"id": account_id, "uuid": uuid_val}], update=True)
-            except Exception as e:
-                logging.error(f"DB update failed (ignored): {e}")
-
+            # We return the uuid and phone_code to the frontend.
+            # We don't save to Supabase here to avoid the Render crash.
             return jsonify({
                 "success": True,
                 "uuid": uuid_val,
                 "phone_code": phone_res.get("data", {}).get("phone_code", "77777777")
             })
-        
-        return jsonify({"success": False, "error": phone_res.get("msg", "API Error")}), 400
+        else:
+            return jsonify({"success": False, "error": phone_res.get("msg", "API Error")}), 400
 
     except Exception as e:
         logging.exception("Bind request failed")
-        return jsonify({"success": False, "error": "Internal server error"}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# -------- CHECK BIND STATUS (Database-Free Version) --------
+@darino_bp.route("/bind/status", methods=["POST"])
+def bind_check_status():
+    try:
+        user_id = get_user_id_from_token(request)
+        if not user_id:
+            return jsonify({"success": False, "error": "Unauthorized"}), 401
+
+        data = request.json or {}
+        account_id = data.get("account_id")
+        uuid_val = data.get("uuid") # The frontend passes this back to us
+
+        if not uuid_val:
+            return jsonify({"success": False, "error": "No session UUID provided"}), 400
+
+        accounts = get_user_accounts(user_id, bot_type="darino") or []
+        account = next((a for a in accounts if a.get("id") == account_id), None)
+        
+        if not account:
+            return jsonify({"success": False, "error": "Account not found"}), 404
+
+        token = account.get("token")
+        
+        # Check Darino API directly using the UUID provided by the frontend
+        scan_res = scan_result(uuid_val, token)
+        
+        if scan_res.get("code") == 0:
+            # ONLY update status to bound if it actually succeeded
+            # This is a simple update that shouldn't crash
+            try:
+                save_bot_accounts(user_id, [{"id": account_id, "status": "bound", "bound_phone": "Linked"}], update=True)
+            except:
+                pass 
+            return jsonify({"success": True, "message": "Success!"})
+
+        return jsonify({"success": False, "message": scan_res.get("msg", "Waiting for scan...")})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+        
 
 # -------- CHECK BIND STATUS --------
 @darino_bp.route("/bind/status", methods=["POST"])
