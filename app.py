@@ -13,17 +13,30 @@ app.config['SUPABASE_URL'] = os.environ.get('SUPABASE_URL', '')
 app.config['SUPABASE_KEY'] = os.environ.get('SUPABASE_KEY', '')
 
 # ============= IMPORT BLUEPRINTS =============
-# These will be separate files you create
-from bots.defi import defi_bp
-from bots.darino import darino_bp
 from auth.routes import auth_bp
 from dashboard.routes import dashboard_bp
+from routes.chat import chat_bp         # New: Chat System
+from bots.darino import darino_bp
+from bots.lavend import lavend_bp       # New: Lavend Bot
+from bots.defi import defi_bp
+
+# === FUTURE EXAMPLES (Add files for these as you grow) ===
+# from bots.gold_rush import gold_bp    # Example 1: New Bot
+# from routes.admin import admin_bp     # Example 2: Admin Panel
+# from routes.market import market_bp   # Example 3: User Marketplace
+# from routes.wallet import wallet_bp   # Example 4: Internal Wallet
+# from routes.tasks import tasks_bp     # Example 5: Global Task Manager
 
 # ============= REGISTER BLUEPRINTS =============
+# CORE SYSTEMS
 app.register_blueprint(auth_bp, url_prefix='/auth')
+app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+app.register_blueprint(chat_bp, url_prefix='/chat')       # Endpoints: /chat/send, /chat/history
+
+# BOT SYSTEMS
 app.register_blueprint(defi_bp, url_prefix='/bot/defi')
 app.register_blueprint(darino_bp, url_prefix='/bot/darino')
-app.register_blueprint(dashboard_bp, url_prefix='/dashboard')
+app.register_blueprint(lavend_bp, url_prefix='/bot/lavend') # Endpoints: /bot/lavend/bind
 
 # ============= MAIN ROUTES =============
 
@@ -32,21 +45,22 @@ def home():
     return jsonify({
         "status": "online",
         "service": "FXC Bot Looters Platform",
-        "version": "1.0.0",
+        "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         "endpoints": {
-            "auth": {
-                "signup": "/auth/signup (POST)",
-                "login": "/auth/login (POST)",
-                "profile": "/auth/profile (GET)"
+            "core": {
+                "auth": "/auth/*",
+                "dashboard": "/dashboard/*",
+                "chat": "/chat/* (Social & Multimedia Messaging)"
             },
             "bots": {
-                "defi": "/bot/defi/* (DeFi Products Bot)",
-                "darino": "/bot/darino/* (Darino Bot)"
+                "darino": "/bot/darino/*",
+                "lavend": "/bot/lavend/* (New Bot)",
+                "defi": "/bot/defi/*"
             },
-            "dashboard": {
-                "stats": "/dashboard/stats (GET)",
-                "bots": "/dashboard/bots (GET)",
-                "accounts": "/dashboard/accounts (GET)"
+            "examples": {
+                "future_bot": "/bot/gold_rush",
+                "marketplace": "/market",
+                "admin": "/admin"
             }
         }
     })
@@ -69,8 +83,10 @@ def internal_error(error):
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("🚀 FXC BOT LOOTERS PLATFORM")
+    print("🚀 FXC BOT LOOTERS PLATFORM - MULTI-BOT CORE")
     print("=" * 60)
+    print(f"📡 Chat System: ACTIVE")
+    print(f"🤖 Lavend Bot: READY")
     print(f"📅 Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
     
