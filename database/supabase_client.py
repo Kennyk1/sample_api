@@ -5,14 +5,14 @@ import logging
 SUPABASE_URL = "https://vvkvowtrzmekbdresegf.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2a3Zvd3Ryem1la2JkcmVzZWdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3MDQyMzIsImV4cCI6MjA4MjI4MDIzMn0.ge6YMn01wM_oEm1wT4tx1mUBxwXqUHiKZIQdCIC1-OM"
 
-# ================== CLIENT ==================
 supabase: Client = None
 
 def init_supabase():
     global supabase
     try:
         supabase = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-        if not supabase: raise RuntimeError("Supabase client is None")
+        if not supabase:
+            raise RuntimeError("Supabase client is None")
         logging.info("Supabase initialized successfully")
     except Exception as e:
         logging.critical(f"Supabase init failed: {e}", exc_info=True)
@@ -20,7 +20,8 @@ def init_supabase():
 
 init_supabase()
 
-# ================== AUTH ==================
+# ================== AUTH (RESTORED FROM OLD) ==================
+
 def supabase_auth_sign_up(email: str, password: str):
     if not supabase: return {"error": "Supabase not initialized"}
     try:
@@ -41,14 +42,14 @@ def supabase_auth_sign_in(email: str, password: str):
         logging.error(f"Signin error: {e}")
         return {"error": str(e)}
 
-# ================== USER PROFILE ==================
+# ================== USER PROFILE (RESTORED FROM OLD) ==================
+
 def insert_user_profile(user_id, email, referral_code):
     try:
         res = supabase.table("users").insert({
-            "id": user_id,
-            "email": email,
+            "id": user_id, 
+            "email": email, 
             "referral_code": referral_code,
-            "avatar_url": None,
             "bio": "Hey there! I'm using FXC Bot."
         }).execute()
         return {"data": res.data}
@@ -56,130 +57,112 @@ def insert_user_profile(user_id, email, referral_code):
         logging.error(f"Insert profile error: {e}")
         return {"error": str(e)}
 
+def get_user_by_email(email):
+    try:
+        res = supabase.table("users").select("*").eq("email", email).single().execute()
+        return res.data
+    except: return None
+
 def get_user_by_id(user_id):
     try:
         res = supabase.table("users").select("*").eq("id", user_id).single().execute()
         return res.data
     except: return None
 
-# ================== CHAT & USER SEARCH ==================
+# ================== DASHBOARD & BOTS (RESTORED FROM OLD) ==================
+
+def get_all_bots():
+    try:
+        res = supabase.table("bots").select("*").eq("is_active", True).execute()
+        return res.data or []
+    except: return []
+
+def get_user_stats(user_id):
+    try:
+        total = supabase.table("bot_accounts").select("*", count="exact").eq("user_id", user_id).execute()
+        success = supabase.table("bot_accounts").select("*", count="exact").eq("user_id", user_id).eq("status", "bound").execute()
+        return {
+            "total_accounts": total.count or 0, 
+            "success_accounts": success.count or 0
+        }
+    except: return {"total_accounts": 0, "success_accounts": 0}
+
+# ================== CHAT & SEARCH (NEW) ==================
 
 def search_users_by_handle(query):
-    """
-    Search users by EXACT handle (email prefix).
-    If user types @kennyfavour11, it finds kennyfavour11@gmail.com
-    """
     try:
         clean_handle = query.replace("@", "").strip()
-        # Using ilike with @ prefix ensures we don't get partial matches like 'kenny' finding 'kenny2'
         res = supabase.table("users").select("id, email, avatar_url, bio")\
             .ilike("email", f"{clean_handle}@%").execute()
-        
         for user in res.data:
             user['username'] = user['email'].split('@')[0]
         return res.data
-    except Exception as e:
-        logging.error(f"User search error: {e}")
-        return []
-
-def get_saved_contacts(owner_id, query):
-    """Search within the user's private saved contacts list"""
-    try:
-        res = supabase.table("contacts")\
-            .select("saved_name, contact_user_id, users(email, avatar_url, bio)")\
-            .eq("owner_id", owner_id)\
-            .ilike("saved_name", f"%{query}%").execute()
-        return res.data
-    except Exception as e:
-        logging.error(f"Contact search error: {e}")
-        return []
-
-def add_contact(owner_id, contact_user_id, saved_name):
-    """Save a user to your personal contacts list with a nickname"""
-    try:
-        res = supabase.table("contacts").insert({
-            "owner_id": owner_id,
-            "contact_user_id": contact_user_id,
-            "saved_name": saved_name
-        }).execute()
-        return res.data
-    except Exception as e:
-        logging.error(f"Add contact error: {e}")
-        return None
+    except: return []
 
 def send_message(sender_id, recipient_id, content, msg_type="text", file_url=None):
-    """Sends a message (text, photo, or video)"""
     try:
         payload = {
-            "sender_id": sender_id,
-            "recipient_id": recipient_id,
-            "content": content,
-            "msg_type": msg_type,
+            "sender_id": sender_id, 
+            "recipient_id": recipient_id, 
+            "content": content, 
+            "msg_type": msg_type, 
             "file_url": file_url
         }
         res = supabase.table("messages").insert(payload).execute()
         return res.data
-    except Exception as e:
-        logging.error(f"Send message error: {e}")
-        return None
+    except: return None
 
 def get_chat_history(user_id, partner_id):
-    """Fetches full conversation history between two users"""
     try:
         res = supabase.table("messages").select("*")\
             .or_(f"and(sender_id.eq.{user_id},recipient_id.eq.{partner_id}),and(sender_id.eq.{partner_id},recipient_id.eq.{user_id})")\
             .order("created_at", desc=False).execute()
         return res.data
-    except Exception as e:
-        logging.error(f"Fetch chat error: {e}")
-        return []
+    except: return []
 
-# ================== STORAGE (PHOTOS/VIDEOS/AVATARS) ==================
+# ================== STORAGE (NEW) ==================
 
 def upload_file(bucket_name, file_path, file_body, content_type):
-    """Uploads media to storage and returns the public URL"""
     try:
         supabase.storage.from_(bucket_name).upload(file_path, file_body, {
-            "content-type": content_type,
-            "upsert": "true" # Overwrite if same path (good for updating profile pics)
+            "content-type": content_type, 
+            "upsert": "true"
         })
-        url = supabase.storage.from_(bucket_name).get_public_url(file_path)
-        return url
-    except Exception as e:
-        logging.error(f"Upload error: {e}")
-        return None
+        return supabase.storage.from_(bucket_name).get_public_url(file_path)
+    except: return None
 
-# ================== BOT ACCOUNTS ==================
+# ================== BOT ACCOUNTS (RESTORED FROM OLD) ==================
+
 def save_bot_accounts(user_id, accounts, update=False):
     try:
         if not update:
             rows = [{
-                "user_id": user_id,
-                "bot_type": acc.get("bot_type"),
-                "email": acc.get("email"),
-                "password": acc.get("password"),
-                "promo_code": acc.get("promo_code"),
-                "status": acc.get("status", "not_bound"),
-                "metadata": acc.get("metadata", {})
-            } for acc in accounts]
+                "user_id": user_id, 
+                "bot_type": a.get("bot_type"), 
+                "email": a.get("email"), 
+                "password": a.get("password"), 
+                "promo_code": a.get("promo_code"), 
+                "status": a.get("status", "not_bound"), 
+                "metadata": a.get("metadata", {})
+            } for a in accounts]
             res = supabase.table("bot_accounts").insert(rows).execute()
             return len(res.data or [])
         else:
-            updated_count = 0
+            count = 0
             for acc in accounts:
                 if "id" not in acc: continue
-                row_id = acc.pop("id")
-                res = supabase.table("bot_accounts").update(acc).eq("id", row_id).eq("user_id", user_id).execute()
-                if res.data: updated_count += 1
-            return updated_count
+                rid = acc.pop("id")
+                res = supabase.table("bot_accounts").update(acc).eq("id", rid).eq("user_id", user_id).execute()
+                if res.data: count += 1
+            return count
     except Exception as e:
-        logging.error(f"Save/Update bot accounts error: {e}")
+        logging.error(f"Save bot accounts error: {e}")
         return 0
 
-def get_user_accounts(user_id, bot_type=None):
+def get_user_accounts(user_id, bot_type=None, limit=50, offset=0):
     try:
         q = supabase.table("bot_accounts").select("*").eq("user_id", user_id)
         if bot_type: q = q.eq("bot_type", bot_type)
-        res = q.order("created_at", desc=True).execute()
+        res = q.order("created_at", desc=True).limit(limit).offset(offset).execute()
         return res.data or []
     except: return []
