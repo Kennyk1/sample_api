@@ -65,19 +65,47 @@ def get_user_by_id(user_id):
 # ================== CHAT & USER SEARCH ==================
 
 def search_users_by_handle(query):
-    """Search users by the first part of their email (the handle)"""
+    """
+    Search users by EXACT handle (email prefix).
+    If user types @kennyfavour11, it finds kennyfavour11@gmail.com
+    """
     try:
-        # Search emails that start with the query
+        clean_handle = query.replace("@", "").strip()
+        # Using ilike with @ prefix ensures we don't get partial matches like 'kenny' finding 'kenny2'
         res = supabase.table("users").select("id, email, avatar_url, bio")\
-            .ilike("email", f"{query}%").limit(10).execute()
+            .ilike("email", f"{clean_handle}@%").execute()
         
-        # Format for frontend: strip @gmail.com to show as username
         for user in res.data:
             user['username'] = user['email'].split('@')[0]
         return res.data
     except Exception as e:
         logging.error(f"User search error: {e}")
         return []
+
+def get_saved_contacts(owner_id, query):
+    """Search within the user's private saved contacts list"""
+    try:
+        res = supabase.table("contacts")\
+            .select("saved_name, contact_user_id, users(email, avatar_url, bio)")\
+            .eq("owner_id", owner_id)\
+            .ilike("saved_name", f"%{query}%").execute()
+        return res.data
+    except Exception as e:
+        logging.error(f"Contact search error: {e}")
+        return []
+
+def add_contact(owner_id, contact_user_id, saved_name):
+    """Save a user to your personal contacts list with a nickname"""
+    try:
+        res = supabase.table("contacts").insert({
+            "owner_id": owner_id,
+            "contact_user_id": contact_user_id,
+            "saved_name": saved_name
+        }).execute()
+        return res.data
+    except Exception as e:
+        logging.error(f"Add contact error: {e}")
+        return None
 
 def send_message(sender_id, recipient_id, content, msg_type="text", file_url=None):
     """Sends a message (text, photo, or video)"""
@@ -86,7 +114,7 @@ def send_message(sender_id, recipient_id, content, msg_type="text", file_url=Non
             "sender_id": sender_id,
             "recipient_id": recipient_id,
             "content": content,
-            "msg_type": msg_type, # 'text', 'image', or 'video'
+            "msg_type": msg_type,
             "file_url": file_url
         }
         res = supabase.table("messages").insert(payload).execute()
@@ -106,23 +134,22 @@ def get_chat_history(user_id, partner_id):
         logging.error(f"Fetch chat error: {e}")
         return []
 
-# ================== STORAGE (PHOTOS/VIDEOS) ==================
+# ================== STORAGE (PHOTOS/VIDEOS/AVATARS) ==================
 
 def upload_file(bucket_name, file_path, file_body, content_type):
-    """Uploads profile pics, chat photos, or videos to Supabase Storage"""
+    """Uploads media to storage and returns the public URL"""
     try:
-        # bucket_name should be 'avatars' or 'chat-media'
-        res = supabase.storage.from_(bucket_name).upload(file_path, file_body, {
-            "content-type": content_type
+        supabase.storage.from_(bucket_name).upload(file_path, file_body, {
+            "content-type": content_type,
+            "upsert": "true" # Overwrite if same path (good for updating profile pics)
         })
-        # Get the public URL
         url = supabase.storage.from_(bucket_name).get_public_url(file_path)
         return url
     except Exception as e:
         logging.error(f"Upload error: {e}")
         return None
 
-# ================== BOT ACCOUNTS (KEEPING EXISTING) ==================
+# ================== BOT ACCOUNTS ==================
 def save_bot_accounts(user_id, accounts, update=False):
     try:
         if not update:
