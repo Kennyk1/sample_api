@@ -69,6 +69,30 @@ def get_user_by_id(user_id):
         return res.data
     except: return None
 
+def update_user_profile(user_id, bio=None, avatar_url=None):
+    """
+    Update user's bio and/or avatar_url.
+    Only updates fields provided (not None).
+    Returns dict with 'data' on success or 'error' on failure.
+    """
+    try:
+        update_data = {}
+        if bio is not None:
+            update_data["bio"] = bio
+        if avatar_url is not None:
+            update_data["avatar_url"] = avatar_url
+
+        if not update_data:
+            return {"error": "No fields to update"}
+
+        res = supabase.table("users").update(update_data).eq("id", user_id).execute()
+        if res.error:
+            return {"error": res.error.message}
+        return {"data": res.data}
+    except Exception as e:
+        logging.error(f"Update user profile error: {e}")
+        return {"error": str(e)}
+
 # ================== DASHBOARD & BOTS (RESTORED FROM OLD) ==================
 
 def get_all_bots():
