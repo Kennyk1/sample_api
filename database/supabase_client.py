@@ -44,13 +44,14 @@ def supabase_auth_sign_in(email: str, password: str):
 
 # ================== USER PROFILE (RESTORED FROM OLD) ==================
 
-def insert_user_profile(user_id, email, referral_code):
+def insert_user_profile(user_id, email, referral_code, bio="Hey there! I'm using FXC Bot.", avatar_url=""):
     try:
         res = supabase.table("users").insert({
             "id": user_id, 
             "email": email, 
             "referral_code": referral_code,
-            "bio": "Hey there! I'm using FXC Bot."
+            "bio": bio,
+            "avatar_url": avatar_url
         }).execute()
         return {"data": res.data}
     except Exception as e:
