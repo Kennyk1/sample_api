@@ -244,44 +244,44 @@ def upload_avatar():
     Returns JSON with new avatar_url on success.
     """
     try:
-        # Verify JWT token from Authorization header
+        # 1️⃣ Verify JWT token
         payload = get_auth_payload()
         if not payload:
             return jsonify(success=False, error="Invalid or expired token"), 401
 
         user_id = payload["user_id"]
 
-        # Check if file is present in request
+        # 2️⃣ Check if file is present
         if "avatar" not in request.files:
             return jsonify(success=False, error="No avatar file provided"), 400
 
         avatar_file = request.files["avatar"]
+        if avatar_file.filename == "":
+            return jsonify(success=False, error="No file selected"), 400
 
-        # Optional: validate file type and size here
-        allowed_extensions = {"png", "jpg", "jpeg", "gif", "webp"}
-        filename = avatar_file.filename.lower()
-        if not ('.' in filename and filename.rsplit('.', 1)[1] in allowed_extensions):
-            return jsonify(success=False, error="Unsupported file type"), 400
+        # 3️⃣ Prepare safe filename with timestamp
+        import time
+        timestamp = int(time.time())
+        original_name = avatar_file.filename
+        safe_name = original_name.replace(" ", "_")
+        file_path = f"{user_id}/{timestamp}_{safe_name}"
 
-        # Build file path for storage: e.g. avatars/<user_id>.<ext>
-        file_ext = filename.rsplit('.', 1)[1]
-        file_path = f"avatars/{user_id}.{file_ext}"
-
-        # Read file bytes
+        # 4️⃣ Read file bytes
         file_bytes = avatar_file.read()
+        mime_type = avatar_file.content_type or "image/jpeg"
 
-        # Upload file to Supabase Storage (bucket name 'avatars' assumed)
-        public_url = upload_file("avatars", file_path, file_bytes, avatar_file.content_type)
-
+        # 5️⃣ Upload to Supabase Storage
+        public_url = upload_file("avatars", file_path, file_bytes, mime_type)
         if not public_url:
             return jsonify(success=False, error="Failed to upload avatar"), 500
 
-        # Update user's avatar_url in database
+        # 6️⃣ Update user's avatar_url in database
         update_result = update_user_profile(user_id, avatar_url=public_url)
         if "error" in update_result:
             current_app.logger.error(f"Failed to update avatar_url: {update_result['error']}")
             return jsonify(success=False, error="Failed to update profile avatar"), 500
 
+        # 7️⃣ Return success with public URL
         return jsonify(success=True, avatar_url=public_url)
 
     except Exception as e:
